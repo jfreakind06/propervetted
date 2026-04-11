@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StoreFlow — On-Demand Storage Backend Architecture</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { background: #06080f; font-family: 'Inter', system-ui, sans-serif; color: #e2e8f0; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #06080f; }
+    ::-webkit-scrollbar-thumb { background: #1b2433; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <script type="text/babel">
+const { useState } = React;
+
+const C = {
+  bg: "#06080f",
+  card: "#0d1117",
+  cardAlt: "#131923",
+  border: "#1b2433",
+  accent: "#f59e0b",
+  accentDim: "#92400e",
+  green: "#10b981",
+  blue: "#3b82f6",
+  purple: "#8b5cf6",
+  red: "#ef4444",
+  pink: "#ec4899",
+  cyan: "#06b6d4",
+  orange: "#f97316",
+  text: "#e2e8f0",
+  dim: "#94a3b8",
+  muted: "#475569",
+};
+
+const tabs = ["System Overview", "Data Flow", "Database Schema", "API Contracts", "Scaling Plan"];
+
+/* ─── SERVICE DETAIL DATA ─── */
+const serviceInfo = {
+  "API Gateway": {
+    tech: "Kong / AWS API Gateway",
+    what: "Single entry point for ALL clients (customer app, driver app, warehouse dashboard, admin panel). Validates JWT tokens, rate-limits requests, and routes to the correct backend service.",
+    responsibilities: [
+      "JWT validation & role-based routing",
+      "Rate limiting per user role",
+      "Request logging & analytics",
+      "SSL termination",
+      "API versioning (/v1/, /v2/)",
+    ],
+  },
+  "Auth Service": {
+    tech: "Node.js + bcrypt + JWT",
+    what: "Handles login/signup for all 4 user types. Issues role-scoped JWTs so the gateway knows if you're a customer, driver, warehouse worker, or admin.",
+    responsibilities: [
+      "User registration (customer, driver, warehouse, admin)",
+      "Login with email/password + OAuth",
+      "JWT issuance with role claims",
+      "Token refresh & revocation",
+      "Password reset flow",
+      "Driver & warehouse staff onboarding",
+    ],
+  },
+  "Order Service": {
+    tech: "Node.js + PostgreSQL + Redis",
+    what: "The core brain. When a customer books storage, this service checks bin availability, calculates pricing, creates the order, and triggers driver dispatch.",
+    responsibilities: [
+      "Receive storage request from customer",
+      "Query Inventory Service for bin availability",
+      "Calculate pricing based on bin size × duration",
+      "Create order record with status tracking",
+      "Trigger driver dispatch via event",
+      "Handle return/retrieval requests",
+      "Order state machine management",
+    ],
+  },
+  "Inventory Service": {
+    tech: "Node.js + PostgreSQL",
+    what: "Tracks every bin in every warehouse — what's available, what's occupied, where each customer's items physically are. The warehouse team uses this constantly.",
+    responsibilities: [
+      "Track warehouse capacity (total bins, available bins)",
+      "Bin allocation & reservation",
+      "Item-to-bin mapping",
+      "Warehouse zone management",
+      "Capacity forecasting",
+      "Bin status updates (empty → reserved → occupied → pending-return)",
+    ],
+  },
+  "Driver Service": {
+    tech: "Node.js + Redis + WebSocket",
+    what: "Manages the driver fleet — assigns pickups, tracks driver location in real-time, handles routing to warehouse, and manages return deliveries.",
+    responsibilities: [
+      "Driver availability tracking",
+      "Pickup/delivery assignment (nearest available)",
+      "Real-time GPS location tracking",
+      "Route optimization to warehouse",
+      "Trip status updates (en-route → arrived → picked-up → delivered)",
+      "Driver shift management",
+    ],
+  },
+  "Payment Service": {
+    tech: "Node.js + Stripe",
+    what: "Handles all money — initial storage booking charges, recurring monthly billing, and retrieval fees when customers want items back.",
+    responsibilities: [
+      "Initial booking payment",
+      "Recurring monthly billing (subscription)",
+      "Retrieval/delivery fee processing",
+      "Refund handling",
+      "Invoice generation",
+      "Payment method management",
+    ],
+  },
+  "Notification Service": {
+    tech: "Node.js + FCM + SendGrid + Twilio",
+    what: "Keeps everyone in the loop — customers get pickup ETAs, drivers get new assignments, warehouse gets incoming alerts, admins get daily summaries.",
+    responsibilities: [
+      "Customer: booking confirmation, driver ETA, item stored, retrieval updates",
+      "Driver: new pickup assignment, route info, delivery confirmation",
+      "Warehouse: incoming shipment alerts, return prep requests",
+      "Admin: daily reports, capacity warnings, issue alerts",
+    ],
+  },
+  "Tracking Service": {
+    tech: "Node.js + Redis + WebSocket",
+    what: "Real-time tracking that ALL roles can see — customer watches their driver, warehouse sees incoming deliveries, admin sees everything.",
+    responsibilities: [
+      "Real-time driver location broadcasting",
+      "Item journey tracking (home → transit → warehouse → return)",
+      "ETA calculations",
+      "Delivery proof (photo upload)",
+      "Historical trip data",
+    ],
+  },
+};
+
+/* ─── SCHEMA DATA ─── */
+const schema = [
+  {
+    name: "users",
+    color: C.blue,
+    desc: "All user types in one table, differentiated by role",
+    fields: [
+      { n: "id", t: "UUID", pk: true },
+      { n: "email", t: "VARCHAR(255) UNIQUE" },
+      { n: "password_hash", t: "VARCHAR(255)" },
+      { n: "role", t: "ENUM('customer','driver','warehouse_staff','admin')" },
+      { n: "full_name", t: "VARCHAR(255)" },
+      { n: "phone", t: "VARCHAR(20)" },
+      { n: "avatar_url", t: "TEXT" },
+      { n: "is_active", t: "BOOLEAN DEFAULT true" },
+      { n: "stripe_customer_id", t: "VARCHAR(255) — customers only" },
+      { n: "created_at", t: "TIMESTAMP" },
+    ],
+  },
+  {
+    name: "driver_profiles",
+    color: C.orange,
+    desc: "Extra info for drivers — vehicle, availability, location",
+    fields: [
+      { n: "id", t: "UUID", pk: true },
+      { n: "user_id", t: "UUID", fk: "users.id" },
+      { n: "vehicle_type", t: "ENUM('car','van','truck')" },
+      { n: "license_plate", t: "VARCHAR(20)" },
+      { n: "is_available", t: "BOOLEAN" },
+      { n: "current_lat", t: "DECIMAL(10,7)" },
+      { n: "current_lng", t: "DECIMAL(10,7)" },
+      { n: "assigned_warehouse_id", t: "UUID", fk: "warehouses.id" },
+      { n: "rating", t: "DECIMAL(2,1)" },
+    ],
+  },
+  {
+    name: "warehouses",
+    color: C.green,
+    desc: "Physical warehouse locations your company operates",
+    fields: [
+      { n: "id", t: "UUID", pk: true },
+      { n: "name", t: "VARCHAR(255)" },
+      { n: "address", t: "JSONB" },
+      { n: "lat", t: "DECIMAL(10,7)" },
+      { n: "lng", t: "DECIMAL(10,7)" },
+      { n: "total_small_bins", t: "INTEGER" },
+      { n: "total_medium_bins", t: "INTEGER" },
+      { n: "total_large_bins", t: "INTEGER" },
+      { n: "available_small", t: "INTEGER" },
+      { n: "available_medium", t: "INTEGER" },
+      { n: "available_large", t: "INTEGER" },
+      { n: "operating_hours", t: "JSONB" },
+      { n: "is_active", t: "BOOLEAN" },
+    ],
+  },
+  {
+    name: "bins",
+    color: C.cyan,
+    desc: "Every physical bin tracked individually",
+    fields: [
+      { n: "id", t: "UUID", pk: true },
+      { n: "warehouse_id", t: "UUID", fk: "warehouses.id" },
+      { n: "size", t: "ENUM('small','medium','large')" },
+      { n: "label", t: "VARCHAR(50) — e.g. 'A-3-17'" },
+      { n: "zone", t: "VARCHAR(50) — aisle/section" },
+      { n: "status", t: "ENUM('available','reserved','occupied','maintenance')" },
+      { n: "current_order_id", t: "UUID NULLABLE", fk: "orders.id" },
+    ],
+  },
+  {
+    name: "orders",
+    color: C.accent,
+    desc: "Core table — each storage booking is an order",
+    fields: [
+      { n: "id", t: "UUID", pk: true },
+      { n: "customer_id", t: "UUID", fk: "users.id" },
+      { n: "status", t: "ENUM('pending','driver_assigned','pickup_in_progress','in_transit','stored','retrieval_requested','out_for_delivery','returned','cancelled')" },
+      { n: "bin_size", t: "ENUM('small','medium','large')" },
+      { n: "num_bins", t: "INTEGER DEFAULT 1" },
+      { n: "pickup_address", t: "JSONB" },
+      { n: "pickup_lat", t: "DECIMAL(10,7)" },
+      { n: "pickup_lng", t: "DECIMAL(10,7)" },
+      { n: "scheduled_pickup", t: "TIMESTAMP" },
+      { n: "warehouse_id", t: "UUID", fk: "warehouses.id" },
+      { n: "monthly_rate", t: "DECIMAL(10,2)" },
+      { n: "pickup_fee", t: "DECIMAL(10,2)" },
+      { n: "retrieval_fee", t: "DECIMAL(10,2)" },
+      { n: "description", t: "TEXT — what's being stored" },
+      { n: "photo_urls", t: "TEXT[] — item photos" },
+      { n: "created_at", t: "TIMESTAMP" },
+      { n: "stored_at", t: "TIMESTAMP NULLABLE" },
+      { n: "returned_at", t: "TIMESTAMP NULLABLE" },
+    ],
+  },
+  {
+    name: "order_items",
+    color: C.accent,
+    desc: "Individual items within an order for detailed tracking",
+    fields: [
+      { n: "id", t: "UUID", pk: true },
+      { n: "order_id", t: "UUID", fk: "orders.id" },
+      { n: "name", t: "VARCHAR(255) — e.g. 'Winter clothes box'" },
+      { n: "description", t: "TEXT" },
+      { n: "photo_url", t: "TEXT" },
+      { n: "bin_id", t: "UUID NULLABLE", fk: "bins.id" },
+      { n: "barcode", t: "VARCHAR(100) — scannable label" },
+      { n: "status", t: "ENUM('with_customer','picked_up','in_warehouse','out_for_return','returned')" },
+    ],
+  },
+  {
+    name: "trips",
+    color: C.orange,
+    desc: "Driver trips — pickup runs and return deliveries",
+    fields: [
+      { n: "id", t: "UUID", pk: true },
+      { n: "order_id", t: "UUID", fk: "orders.id" },
+      { n: "driver_id", t: "UUID", fk: "users.id" },
+      { n: "type", t: "ENUM('pickup','return')" },
+      { n: "status", t: "ENUM('assigned','en_route_to_customer','at_customer','en_route_to_warehouse','delivered','completed')" },
+      { n: "pickup_lat", t: "DECIMAL(10,7)" },
+      { n: "pickup_lng", t: "DECIMAL(10,7)" },
+      { n: "destination_lat", t: "DECIMAL(10,7)" },
+      { n: "destination_lng", t: "DECIMAL(10,7)" },
+      { n: "started_at", t: "TIMESTAMP" },
+      { n: "completed_at", t: "TIMESTAMP NULLABLE" },
+      { n: "proof_photo_url", t: "TEXT — photo on pickup/delivery" },
+    ],
+  },
+  {
+    name: "payments",
+    color: C.pink,
+    desc: "All charges — booking, monthly recurring, retrieval fees",
+    fields: [
+      { n: "id", t: "UUID", pk: true },
+      { n: "order_id", t: "UUID", fk: "orders.id" },
+      { n: "customer_id", t: "UUID", fk: "users.id" },
+      { n: "type", t: "ENUM('pickup_fee','monthly_storage','retrieval_fee','refund')" },
+      { n: "amount", t: "DECIMAL(10,2)" },
+      { n: "stripe_payment_id", t: "VARCHAR(255)" },
+      { n: "status", t: "ENUM('pending','completed','failed','refunded')" },
+      { n: "billing_period_start", t: "DATE NULLABLE" },
+      { n: "billing_period_end", t: "DATE NULLABLE" },
+      { n: "paid_at", t: "TIMESTAMP" },
+    ],
+  },
+];
+
+/* ─── API DATA ─── */
+const apis = [
+  {
+    group: "Auth (All Roles)",
+    color: C.blue,
+    endpoints: [
+      { m: "POST", p: "/api/v1/auth/register", d: "Register (customer, driver, staff)" },
+      { m: "POST", p: "/api/v1/auth/login", d: "Login → returns JWT with role" },
+      { m: "POST", p: "/api/v1/auth/refresh", d: "Refresh token" },
+    ],
+  },
+  {
+    group: "Customer App",
+    color: C.green,
+    endpoints: [
+      { m: "GET", p: "/api/v1/storage/pricing", d: "Get bin sizes & pricing" },
+      { m: "POST", p: "/api/v1/storage/check-availability", d: "Check if bins available near customer {size, qty, zip}" },
+      { m: "POST", p: "/api/v1/orders", d: "Book storage → triggers driver dispatch" },
+      { m: "GET", p: "/api/v1/orders/my", d: "List my active & past orders" },
+      { m: "GET", p: "/api/v1/orders/{id}", d: "Order detail + item list + current status" },
+      { m: "GET", p: "/api/v1/orders/{id}/items", d: "See all items stored in this order" },
+      { m: "POST", p: "/api/v1/orders/{id}/request-return", d: "Request items back (triggers retrieval)" },
+      { m: "GET", p: "/api/v1/orders/{id}/track", d: "Real-time driver tracking for active trip" },
+      { m: "GET", p: "/api/v1/payments/history", d: "Billing history & upcoming charges" },
+      { m: "POST", p: "/api/v1/payments/method", d: "Add/update payment method" },
+    ],
+  },
+  {
+    group: "Driver App",
+    color: C.orange,
+    endpoints: [
+      { m: "PUT", p: "/api/v1/driver/status", d: "Go online/offline" },
+      { m: "PUT", p: "/api/v1/driver/location", d: "Update GPS location (every 5s)" },
+      { m: "GET", p: "/api/v1/driver/assignments", d: "Get current & queued assignments" },
+      { m: "PUT", p: "/api/v1/trips/{id}/status", d: "Update trip status (arrived, picked up, etc.)" },
+      { m: "POST", p: "/api/v1/trips/{id}/proof", d: "Upload proof-of-pickup/delivery photo" },
+      { m: "POST", p: "/api/v1/trips/{id}/scan", d: "Scan item barcode at pickup/dropoff" },
+      { m: "GET", p: "/api/v1/driver/earnings", d: "View earnings & completed trips" },
+    ],
+  },
+  {
+    group: "Warehouse Dashboard",
+    color: C.cyan,
+    endpoints: [
+      { m: "GET", p: "/api/v1/warehouse/{id}/overview", d: "Capacity summary (bins by size & status)" },
+      { m: "GET", p: "/api/v1/warehouse/{id}/incoming", d: "Expected deliveries from drivers" },
+      { m: "GET", p: "/api/v1/warehouse/{id}/bins", d: "All bins with status & contents" },
+      { m: "PUT", p: "/api/v1/bins/{id}/assign", d: "Assign item to specific bin location" },
+      { m: "POST", p: "/api/v1/bins/{id}/scan", d: "Scan item into bin (confirms storage)" },
+      { m: "GET", p: "/api/v1/warehouse/{id}/returns", d: "Pending return requests to prepare" },
+      { m: "PUT", p: "/api/v1/orders/{id}/ready-for-return", d: "Mark order items pulled & ready for driver" },
+    ],
+  },
+  {
+    group: "Admin Panel",
+    color: C.purple,
+    endpoints: [
+      { m: "GET", p: "/api/v1/admin/dashboard", d: "KPIs: orders, revenue, capacity, active drivers" },
+      { m: "GET", p: "/api/v1/admin/orders", d: "All orders with filters & search" },
+      { m: "GET", p: "/api/v1/admin/warehouses", d: "All warehouses with capacity overview" },
+      { m: "GET", p: "/api/v1/admin/drivers", d: "Driver fleet status & performance" },
+      { m: "POST", p: "/api/v1/admin/warehouses", d: "Add new warehouse" },
+      { m: "PUT", p: "/api/v1/admin/pricing", d: "Update bin pricing" },
+      { m: "GET", p: "/api/v1/admin/reports/revenue", d: "Revenue reports by period" },
+    ],
+  },
+  {
+    group: "Real-Time (WebSocket)",
+    color: C.pink,
+    endpoints: [
+      { m: "WS", p: "/ws/tracking/{orderId}", d: "Live driver GPS for customer & warehouse" },
+      { m: "WS", p: "/ws/driver/{driverId}", d: "New assignment push to driver" },
+      { m: "WS", p: "/ws/warehouse/{warehouseId}", d: "Incoming delivery alerts" },
+      { m: "WS", p: "/ws/notifications/{userId}", d: "Real-time notifications for any role" },
+    ],
+  },
+];
+
+const mColors = { GET: C.green, POST: C.blue, PUT: C.accent, DELETE: C.red, WS: C.pink };
+
+/* ─── FLOW STEPS ─── */
+const flows = [
+  {
+    title: "📦 Customer Books Storage",
+    color: C.green,
+    steps: [
+      { actor: "Customer App", action: "POST /storage/check-availability", detail: "Sends bin size + qty + zip code", color: C.green },
+      { actor: "API Gateway", action: "→ Order Service", detail: "Validates JWT, routes to Order Service", color: C.accent },
+      { actor: "Order Service", action: "→ Inventory Service", detail: "Queries: 'Do we have 2 small bins near 30281?'", color: C.blue },
+      { actor: "Inventory Service", action: "→ PostgreSQL", detail: "SELECT warehouse with available bins nearest to customer", color: C.cyan },
+      { actor: "Inventory Service", action: "← Response", detail: "Returns: warehouse ID, bin availability, pricing", color: C.cyan },
+      { actor: "Order Service", action: "← Customer App", detail: "Shows customer: price, estimated pickup time", color: C.green },
+      { actor: "Customer App", action: "POST /orders", detail: "Customer confirms → creates order", color: C.green },
+      { actor: "Order Service", action: "→ Inventory Service", detail: "RESERVE bins (status: available → reserved)", color: C.blue },
+      { actor: "Order Service", action: "→ Payment Service", detail: "Charge pickup fee to customer's card", color: C.pink },
+      { actor: "Order Service", action: "→ Message Queue", detail: "Publishes ORDER_CREATED event", color: C.accent },
+    ],
+  },
+  {
+    title: "🚗 Driver Pickup Flow",
+    color: C.orange,
+    steps: [
+      { actor: "Message Queue", action: "→ Driver Service", detail: "Consumes ORDER_CREATED event", color: C.accent },
+      { actor: "Driver Service", action: "→ PostgreSQL", detail: "Find nearest available driver to customer address", color: C.orange },
+      { actor: "Driver Service", action: "→ Driver App (WS)", detail: "Push new assignment to driver's phone", color: C.orange },
+      { actor: "Driver App", action: "PUT /trips/{id}/status", detail: "Driver accepts → status: 'en_route_to_customer'", color: C.orange },
+      { actor: "Tracking Service", action: "→ Customer App (WS)", detail: "Customer sees live driver location on map", color: C.pink },
+      { actor: "Driver App", action: "POST /trips/{id}/scan", detail: "Driver arrives, scans item barcodes", color: C.orange },
+      { actor: "Driver App", action: "POST /trips/{id}/proof", detail: "Uploads pickup photo proof", color: C.orange },
+      { actor: "Driver App", action: "PUT /trips/{id}/status", detail: "Status: 'en_route_to_warehouse'", color: C.orange },
+      { actor: "Tracking Service", action: "→ Warehouse (WS)", detail: "Warehouse dashboard shows incoming delivery ETA", color: C.cyan },
+    ],
+  },
+  {
+    title: "🏭 Warehouse Receives & Stores",
+    color: C.cyan,
+    steps: [
+      { actor: "Driver", action: "Arrives at warehouse", detail: "Warehouse staff sees arrival on dashboard", color: C.orange },
+      { actor: "Warehouse Staff", action: "POST /bins/{id}/scan", detail: "Scans each item barcode into assigned bin", color: C.cyan },
+      { actor: "Inventory Service", action: "→ PostgreSQL", detail: "Updates bin status: reserved → occupied, links items", color: C.blue },
+      { actor: "Order Service", action: "→ PostgreSQL", detail: "Order status: 'in_transit' → 'stored'", color: C.accent },
+      { actor: "Notification Service", action: "→ Customer App", detail: "Push: 'Your items are safely stored! 📦'", color: C.purple },
+      { actor: "Customer App", action: "GET /orders/{id}/items", detail: "Customer can now see stored items + photos in app", color: C.green },
+    ],
+  },
+  {
+    title: "🔄 Customer Requests Return",
+    color: C.purple,
+    steps: [
+      { actor: "Customer App", action: "POST /orders/{id}/request-return", detail: "Customer wants items back", color: C.green },
+      { actor: "Order Service", action: "→ Payment Service", detail: "Charge retrieval fee", color: C.pink },
+      { actor: "Order Service", action: "→ Message Queue", detail: "Publishes RETURN_REQUESTED event", color: C.accent },
+      { actor: "Notification Service", action: "→ Warehouse", detail: "Alert: 'Pull items for order #X from bin A-3-17'", color: C.cyan },
+      { actor: "Warehouse Staff", action: "PUT /orders/{id}/ready-for-return", detail: "Items pulled and staged for pickup", color: C.cyan },
+      { actor: "Driver Service", action: "→ Driver App", detail: "Assigns driver to pick up from warehouse", color: C.orange },
+      { actor: "Driver", action: "Delivers to customer", detail: "Customer scans/confirms receipt", color: C.orange },
+      { actor: "Inventory Service", action: "→ PostgreSQL", detail: "Bins freed: occupied → available", color: C.blue },
+      { actor: "Order Service", action: "→ PostgreSQL", detail: "Order status: 'returned', storage billing stops", color: C.accent },
+    ],
+  },
+];
+
+function StorageArchitecture() {
+  const [tab, setTab] = useState(0);
+  const [selectedService, setSelectedService] = useState(null);
+  const [expandedFlow, setExpandedFlow] = useState(0);
+
+  const SBox = ({ name, icon, color, desc, x, y }) => (
+    <g onClick={() => setSelectedService(name)} style={{ cursor: "pointer" }} transform={`translate(${x},${y})`}>
+      <rect width="148" height="58" rx="8" fill={selectedService === name ? color + "22" : C.card} stroke={selectedService === name ? color : C.border} strokeWidth={selectedService === name ? 2 : 1} />
+      <text x="74" y="25" textAnchor="middle" fill={color} fontSize="12" fontWeight="700" fontFamily="'JetBrains Mono',monospace">{icon} {name}</text>
+      <text x="74" y="43" textAnchor="middle" fill={C.dim} fontSize="9.5" fontFamily="'Inter',sans-serif">{desc}</text>
+    </g>
+  );
+
+  const Arr = ({ x1, y1, x2, y2, color = C.muted, dash = false }) => (
+    <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth="1.2" strokeDasharray={dash ? "5,3" : "none"} markerEnd="url(#ah)" opacity="0.5" />
+  );
+
+  return (
+    <div style={{ background: C.bg, minHeight: "100vh", fontFamily: "'Inter',system-ui,sans-serif", color: C.text }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap');
+        *{box-sizing:border-box;margin:0;padding:0}
+        ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:${C.bg}}::-webkit-scrollbar-thumb{background:${C.border};border-radius:3px}
+      `}</style>
+
+      {/* Header */}
+      <div style={{ padding: "28px 28px 0", borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: `linear-gradient(135deg,${C.accent},${C.accentDim})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📦</div>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em" }}>StoreFlow — On-Demand Storage Backend</h1>
+            <p style={{ fontSize: 12, color: C.dim }}>We pick up, store, and deliver your stuff · Full-service storage platform</p>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 2, marginTop: 16, overflowX: "auto" }}>
+          {tabs.map((t, i) => (
+            <button key={t} onClick={() => { setTab(i); setSelectedService(null); }} style={{
+              padding: "9px 16px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
+              background: tab === i ? C.card : "transparent", color: tab === i ? C.accent : C.dim,
+              border: "none", borderRadius: "7px 7px 0 0", cursor: "pointer",
+              borderBottom: tab === i ? `2px solid ${C.accent}` : "2px solid transparent",
+            }}>{t}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: 28 }}>
+
+        {/* ═══ TAB 0: SYSTEM OVERVIEW ═══ */}
+        {tab === 0 && (
+          <div style={{ display: "flex", gap: 20 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <svg viewBox="0 0 840 680" style={{ width: "100%", background: C.card, borderRadius: 14, border: `1px solid ${C.border}` }}>
+                <defs>
+                  <marker id="ah" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+                    <polygon points="0 0,7 2.5,0 5" fill={C.muted} />
+                  </marker>
+                </defs>
+
+                {/* Layer labels */}
+                {[
+                  { y: 22, label: "CLIENT APPS (4 interfaces)" },
+                  { y: 112, label: "API GATEWAY" },
+                  { y: 210, label: "BACKEND SERVICES" },
+                  { y: 490, label: "DATA & INFRASTRUCTURE" },
+                ].map(l => (
+                  <g key={l.label}>
+                    <text x="16" y={l.y} fill={C.muted} fontSize="10" fontWeight="600" fontFamily="'JetBrains Mono',monospace" opacity="0.5">{l.label}</text>
+                    <line x1="14" y1={l.y + 8} x2="826" y2={l.y + 8} stroke={C.border} strokeDasharray="3,3" opacity="0.3" />
+                  </g>
+                ))}
+
+                {/* Client Apps */}
+                {[
+                  { icon: "📱", label: "Customer App", sub: "iOS / Android / Web", x: 50, color: C.green },
+                  { icon: "🚗", label: "Driver App", sub: "iOS / Android", x: 245, color: C.orange },
+                  { icon: "🏭", label: "Warehouse Dashboard", sub: "Web / Tablet", x: 460, color: C.cyan },
+                  { icon: "⚙️", label: "Admin Panel", sub: "Web", x: 670, color: C.purple },
+                ].map(c => (
+                  <g key={c.label}>
+                    <rect x={c.x} y={38} width="140" height="46" rx="7" fill={C.bg} stroke={c.color} strokeWidth="1" opacity="0.8" />
+                    <text x={c.x + 70} y={56} textAnchor="middle" fill={c.color} fontSize="11" fontWeight="600">{c.icon} {c.label}</text>
+                    <text x={c.x + 70} y={72} textAnchor="middle" fill={C.muted} fontSize="9">{c.sub}</text>
+                  </g>
+                ))}
+
+                {/* Arrows to gateway */}
+                {[120, 315, 530, 740].map(x => (
+                  <Arr key={x} x1={x} y1={84} x2={420} y2={125} color={C.accent} />
+                ))}
+
+                {/* Gateway + Auth */}
+                <SBox name="API Gateway" icon="🔀" color={C.accent} desc="Route · Auth · Rate Limit" x={346} y={125} />
+                <SBox name="Auth Service" icon="🔐" color={C.red} desc="JWT · Roles · Login" x={570} y={125} />
+                <Arr x1={494} y1={154} x2={570} y2={154} color={C.red} />
+
+                {/* Service connections from gateway */}
+                {[88, 248, 408, 568, 660].map(x => (
+                  <Arr key={x} x1={420} y1={183} x2={x + 74} y2={228} color={C.muted} />
+                ))}
+
+                {/* Row 1 Services */}
+                <SBox name="Order Service" icon="📋" color={C.accent} desc="Bookings · State · Core" x={88} y={228} />
+                <SBox name="Inventory Service" icon="📊" color={C.cyan} desc="Bins · Capacity · Items" x={248} y={228} />
+                <SBox name="Driver Service" icon="🚗" color={C.orange} desc="Dispatch · Fleet · GPS" x={408} y={228} />
+                <SBox name="Payment Service" icon="💳" color={C.pink} desc="Stripe · Billing · Fees" x={568} y={228} />
+
+                {/* Row 2 Services */}
+                <SBox name="Notification Service" icon="🔔" color={C.purple} desc="Push · Email · SMS" x={88} y={340} />
+                <SBox name="Tracking Service" icon="📍" color={C.green} desc="Real-time · GPS · ETA" x={248} y={340} />
+
+                {/* Message Queue */}
+                <rect x={440} y={330} width="350" height="70" rx="10" fill={C.accent + "08"} stroke={C.accent} strokeWidth="1" strokeDasharray="4,3" />
+                <text x={615} y={355} textAnchor="middle" fill={C.accent} fontSize="12" fontWeight="700" fontFamily="'JetBrains Mono',monospace">📨 Message Queue (RabbitMQ / Kafka)</text>
+                <text x={615} y={375} textAnchor="middle" fill={C.dim} fontSize="9.5">ORDER_CREATED · DRIVER_ASSIGNED · ITEMS_STORED · RETURN_REQUESTED</text>
+                <text x={615} y={390} textAnchor="middle" fill={C.dim} fontSize="9.5">All services publish & consume events asynchronously</text>
+
+                {/* Inter-service arrows */}
+                <Arr x1={236} y1={286} x2={322} y2={286} color={C.cyan} />
+                <text x={275} y={280} textAnchor="middle" fill={C.cyan} fontSize="8" opacity="0.7">check bins</text>
+
+                <Arr x1={236} y1={270} x2={642} y2={252} color={C.pink} dash />
+                <Arr x1={162} y1={286} x2={162} y2={340} color={C.accent} dash />
+                <Arr x1={322} y1={370} x2={440} y2={360} color={C.accent} dash />
+
+                {/* Infrastructure */}
+                {[
+                  { icon: "🐘", label: "PostgreSQL", sub: "Orders·Users·Bins·Trips", x: 50, color: C.blue },
+                  { icon: "⚡", label: "Redis", sub: "Cache · Sessions · GPS", x: 220, color: C.red },
+                  { icon: "☁️", label: "AWS S3 + CDN", sub: "Photos · Proofs", x: 390, color: C.green },
+                  { icon: "📊", label: "Monitoring", sub: "Grafana · Logs · Alerts", x: 560, color: C.purple },
+                  { icon: "⏰", label: "Cron / Scheduler", sub: "Monthly billing", x: 710, color: C.accent },
+                ].map(d => (
+                  <g key={d.label}>
+                    <rect x={d.x} y={510} width="150" height="50" rx="8" fill={C.bg} stroke={d.color} strokeWidth="1" opacity="0.7" />
+                    <text x={d.x + 75} y={530} textAnchor="middle" fill={d.color} fontSize="11" fontWeight="600" fontFamily="'JetBrains Mono',monospace">{d.icon} {d.label}</text>
+                    <text x={d.x + 75} y={546} textAnchor="middle" fill={C.muted} fontSize="9">{d.sub}</text>
+                  </g>
+                ))}
+
+                {/* Communication box */}
+                <rect x={100} y={590} width={640} height={70} rx="10" fill={C.green + "08"} stroke={C.green} strokeWidth="1" strokeDasharray="4,3" />
+                <text x={420} y={614} textAnchor="middle" fill={C.green} fontSize="12" fontWeight="700" fontFamily="'JetBrains Mono',monospace">
+                  HOW FRONTEND ↔ BACKEND TALK
+                </text>
+                <text x={420} y={632} textAnchor="middle" fill={C.dim} fontSize="10">
+                  REST APIs (HTTPS/JSON) — all CRUD operations & data fetching
+                </text>
+                <text x={420} y={648} textAnchor="middle" fill={C.dim} fontSize="10">
+                  WebSockets — live driver GPS, new assignments, warehouse alerts, real-time notifications
+                </text>
+              </svg>
+              <p style={{ fontSize: 10, color: C.muted, marginTop: 6, textAlign: "center" }}>Click any service to see details →</p>
+            </div>
+
+            {/* Detail Panel */}
+            <div style={{ width: 300, flexShrink: 0 }}>
+              {selectedService && serviceInfo[selectedService] ? (
+                <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: 18, position: "sticky", top: 16 }}>
+                  <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 3 }}>{selectedService}</h3>
+                  <p style={{ fontSize: 11, color: C.accent, fontFamily: "'JetBrains Mono',monospace", marginBottom: 12 }}>{serviceInfo[selectedService].tech}</p>
+                  <p style={{ fontSize: 12, color: C.dim, lineHeight: 1.5, marginBottom: 14, padding: 10, background: C.bg, borderRadius: 6 }}>{serviceInfo[selectedService].what}</p>
+                  <h4 style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Responsibilities</h4>
+                  {serviceInfo[selectedService].responsibilities.map(r => (
+                    <div key={r} style={{ fontSize: 12, color: C.text, padding: "5px 0", borderBottom: `1px solid ${C.border}22` }}>
+                      <span style={{ color: C.green, marginRight: 6 }}>▸</span>{r}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: 20, textAlign: "center" }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>👈</div>
+                  <p style={{ fontSize: 13, color: C.dim }}>Click a service in the diagram to see its tech stack, role, and responsibilities.</p>
+
+                  <div style={{ marginTop: 20, textAlign: "left", padding: 14, background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
+                    <h4 style={{ fontSize: 11, color: C.accent, marginBottom: 8 }}>4 CLIENT APPS → 1 BACKEND</h4>
+                    {[
+                      { icon: "📱", label: "Customer App", desc: "Book storage, track driver, view items, request returns" },
+                      { icon: "🚗", label: "Driver App", desc: "Get assignments, navigate, scan items, confirm pickup/delivery" },
+                      { icon: "🏭", label: "Warehouse Dashboard", desc: "See incoming, scan into bins, prepare returns" },
+                      { icon: "⚙️", label: "Admin Panel", desc: "Manage everything — users, warehouses, pricing, reports" },
+                    ].map(a => (
+                      <div key={a.label} style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{a.icon} {a.label}</div>
+                        <div style={{ fontSize: 11, color: C.dim }}>{a.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ TAB 1: DATA FLOW ═══ */}
+        {tab === 1 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <p style={{ fontSize: 13, color: C.dim, marginBottom: 4 }}>Step-by-step: how data moves through the system for each core user journey. This is exactly what happens on each API call.</p>
+            {flows.map((flow, fi) => (
+              <div key={flow.title} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+                <div onClick={() => setExpandedFlow(expandedFlow === fi ? -1 : fi)} style={{
+                  padding: "12px 18px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center",
+                  background: expandedFlow === fi ? flow.color + "10" : "transparent", borderBottom: expandedFlow === fi ? `1px solid ${C.border}` : "none",
+                }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: flow.color }}>{flow.title}</span>
+                  <span style={{ fontSize: 18, color: C.muted, transform: expandedFlow === fi ? "rotate(180deg)" : "none", transition: "0.2s" }}>▾</span>
+                </div>
+                {expandedFlow === fi && (
+                  <div style={{ padding: "12px 18px" }}>
+                    {flow.steps.map((s, si) => (
+                      <div key={si} style={{ display: "flex", gap: 12, marginBottom: 12, alignItems: "flex-start" }}>
+                        <div style={{
+                          minWidth: 28, height: 28, borderRadius: "50%", background: s.color + "20", color: s.color,
+                          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, marginTop: 2,
+                        }}>{si + 1}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: s.color, background: s.color + "15", padding: "2px 8px", borderRadius: 4 }}>{s.actor}</span>
+                            <code style={{ fontSize: 11, color: C.accent, fontFamily: "'JetBrains Mono',monospace" }}>{s.action}</code>
+                          </div>
+                          <p style={{ fontSize: 12, color: C.dim, marginTop: 3 }}>{s.detail}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ═══ TAB 2: DATABASE SCHEMA ═══ */}
+        {tab === 2 && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 16 }}>
+            {schema.map(table => (
+              <div key={table.name} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px", background: table.color + "12", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 7, height: 7, borderRadius: "50%", background: table.color }} />
+                    <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", color: table.color }}>{table.name}</span>
+                  </div>
+                  <span style={{ fontSize: 10, color: C.muted }}>{table.desc}</span>
+                </div>
+                <div style={{ padding: "2px 0" }}>
+                  {table.fields.map(f => (
+                    <div key={f.n} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 14px", borderBottom: `1px solid ${C.border}11` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        {f.pk && <span style={{ fontSize: 8, background: C.accent, color: C.bg, padding: "1px 3px", borderRadius: 2, fontWeight: 700 }}>PK</span>}
+                        {f.fk && <span style={{ fontSize: 8, background: C.purple, color: "#fff", padding: "1px 3px", borderRadius: 2, fontWeight: 700 }}>FK</span>}
+                        <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono',monospace", color: C.text }}>{f.n}</span>
+                      </div>
+                      <span style={{ fontSize: 10, color: C.muted, fontFamily: "'JetBrains Mono',monospace", textAlign: "right", maxWidth: "55%" }}>{f.t}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {/* Schema notes */}
+            <div style={{ gridColumn: "1/-1", background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: 18 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: C.accent, marginBottom: 10 }}>📐 Key Schema Design Decisions</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, fontSize: 12, color: C.dim, lineHeight: 1.5 }}>
+                <div><strong style={{ color: C.text }}>Order status state machine</strong> — The <code style={{ color: C.accent }}>orders.status</code> field tracks the full lifecycle: pending → driver_assigned → pickup_in_progress → in_transit → stored → retrieval_requested → out_for_delivery → returned. Each transition triggers events.</div>
+                <div><strong style={{ color: C.text }}>Bin-level tracking</strong> — Every physical bin has its own record in <code style={{ color: C.cyan }}>bins</code> with a human-readable label (e.g., "A-3-17" = Aisle A, Shelf 3, Position 17). Warehouse staff scans items directly into bins.</div>
+                <div><strong style={{ color: C.text }}>Item barcodes</strong> — Each <code style={{ color: C.accent }}>order_item</code> gets a unique barcode. Drivers scan on pickup, warehouse scans into bins. This creates a verifiable chain of custody from customer's home to specific bin.</div>
+                <div><strong style={{ color: C.text }}>Warehouse capacity counters</strong> — <code style={{ color: C.green }}>warehouses</code> stores both total and available counts per bin size, updated atomically. This enables instant availability checks without counting individual bin records.</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ TAB 3: API CONTRACTS ═══ */}
+        {tab === 3 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <p style={{ fontSize: 13, color: C.dim, marginBottom: 4 }}>Every API endpoint organized by which client app uses it. This is what the frontend team needs to build against.</p>
+            {apis.map(group => (
+              <div key={group.group} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+                <div style={{ padding: "10px 18px", background: group.color + "10", borderBottom: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: group.color }}>{group.group}</span>
+                </div>
+                {group.endpoints.map(ep => (
+                  <div key={ep.p} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 18px", borderBottom: `1px solid ${C.border}11` }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace",
+                      background: (mColors[ep.m] || C.text) + "20", color: mColors[ep.m] || C.text,
+                      padding: "2px 7px", borderRadius: 3, minWidth: 38, textAlign: "center",
+                    }}>{ep.m}</span>
+                    <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono',monospace", color: C.text, minWidth: 300 }}>{ep.p}</span>
+                    <span style={{ fontSize: 11, color: C.dim }}>{ep.d}</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ═══ TAB 4: SCALING PLAN ═══ */}
+        {tab === 4 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {[
+              {
+                phase: "Phase 1 — MVP (0–5K users, 1 warehouse)",
+                color: C.green,
+                items: [
+                  { t: "Modular monolith", d: "All services in one deployable Node.js app, but with clean module boundaries (orders/, inventory/, drivers/ folders). Can extract into microservices later." },
+                  { t: "Single PostgreSQL instance", d: "One database with all tables. Add read replica when query load increases. Use connection pooling (PgBouncer) from day one." },
+                  { t: "Redis for real-time", d: "Driver GPS positions stored in Redis with 5-second TTL updates. Also used for session cache and bin availability cache." },
+                  { t: "Simple driver dispatch", d: "Find nearest available driver using Haversine formula on lat/lng. No need for complex routing algorithms yet." },
+                  { t: "Stripe for payments", d: "Stripe Checkout for initial payments, Stripe Billing for recurring monthly storage charges. Handles PCI compliance for you." },
+                ],
+              },
+              {
+                phase: "Phase 2 — Growth (5K–50K users, 3–5 warehouses)",
+                color: C.accent,
+                items: [
+                  { t: "Extract Driver & Order services", d: "These change fastest. Break them into independent services with their own databases. Communicate via RabbitMQ events." },
+                  { t: "PostGIS for geo-queries", d: "Enable PostGIS extension. Index customer locations and warehouse positions for efficient nearest-warehouse and driver-matching queries." },
+                  { t: "Multi-warehouse routing", d: "Order Service now picks the optimal warehouse based on: proximity to customer, available bin capacity, and driver availability." },
+                  { t: "Background job processing", d: "Bull/BullMQ (Redis-based) for: monthly billing runs, photo processing, report generation, driver payout calculations." },
+                ],
+              },
+              {
+                phase: "Phase 3 — Scale (50K+ users, 10+ warehouses)",
+                color: C.purple,
+                items: [
+                  { t: "Full microservices + Kafka", d: "All services independent. Kafka for event streaming. CQRS where needed (separate read/write models for high-traffic queries)." },
+                  { t: "Database per service", d: "Each microservice owns its data. Order Service has its DB, Inventory has its DB. Sync via events. Eliminates cross-service DB coupling." },
+                  { t: "Multi-region deployment", d: "Deploy to regions near your warehouses. Route customers to nearest region. Global load balancing with failover." },
+                  { t: "Advanced driver matching", d: "Factor in driver capacity (van vs car), current route optimization, predicted demand, and surge pricing during peak times." },
+                  { t: "Data warehouse + analytics", d: "Stream events to data warehouse (BigQuery/Redshift) for business intelligence: demand forecasting, warehouse utilization, driver efficiency." },
+                ],
+              },
+            ].map(phase => (
+              <div key={phase.phase} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: "hidden" }}>
+                <div style={{ padding: "12px 18px", background: phase.color + "10", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 9, height: 9, borderRadius: "50%", background: phase.color }} />
+                  <span style={{ fontSize: 14, fontWeight: 700, color: phase.color }}>{phase.phase}</span>
+                </div>
+                <div style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+                  {phase.items.map(item => (
+                    <div key={item.t} style={{ padding: 14, background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
+                      <h4 style={{ fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 4 }}>{item.t}</h4>
+                      <p style={{ fontSize: 11, color: C.dim, lineHeight: 1.5 }}>{item.d}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* Targets */}
+            <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, padding: 18 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: C.accent, marginBottom: 14 }}>📊 Performance Targets</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+                {[
+                  { m: "API Latency p95", t: "< 200ms", i: "⚡" },
+                  { m: "Driver GPS Update", t: "Every 5s", i: "📍" },
+                  { m: "Bin Check Query", t: "< 50ms", i: "📊" },
+                  { m: "Uptime SLA", t: "99.9%", i: "✅" },
+                  { m: "Notification Delay", t: "< 3s", i: "🔔" },
+                ].map(m => (
+                  <div key={m.m} style={{ textAlign: "center", padding: 14, background: C.bg, borderRadius: 8, border: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 24, marginBottom: 6 }}>{m.i}</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: C.accent, fontFamily: "'JetBrains Mono',monospace" }}>{m.t}</div>
+                    <div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>{m.m}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+    // Mount the app
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(StorageArchitecture));
+  </script>
+</body>
+</html>
