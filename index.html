@@ -2,7 +2,29 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<style>
+/* When loaded inside a Wix iframe */
+html {
+  overflow-x: hidden !important;
+  /* Let Wix control outer scroll - only scroll internally if needed */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+body {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+}
+/* Remove any max-width constraints that could cause side gaps */
+.sec-w, .sec-g, .sec-d, .hero, .ticker, .cta-band, .footer,
+.about-top, .contact-split, .photo-strip {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+</style>
 <title>Properly Vetted LLC — Business Relationship Security</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800;900&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
@@ -795,6 +817,36 @@ img{display:block;max-width:100%;height:auto}
 .nl.active{color:var(--white)!important;opacity:1!important}
 .dl.active{color:var(--blue-v)!important}
 </style>
+
+<script>
+// Report page height to Wix parent iframe
+function reportHeight() {
+  var h = Math.max(
+    document.body.scrollHeight,
+    document.body.offsetHeight,
+    document.documentElement.scrollHeight
+  );
+  // Tell Wix the height
+  window.parent.postMessage({type: 'setHeight', height: h}, '*');
+  try { window.Wix && window.Wix.setHeight(h); } catch(e) {}
+}
+window.addEventListener('load', reportHeight);
+window.addEventListener('resize', reportHeight);
+// Also report after page switches
+var _origShowPage = null;
+window.addEventListener('load', function() {
+  if (typeof showPage === 'function') {
+    var orig = showPage;
+    showPage = function(id) {
+      orig(id);
+      setTimeout(reportHeight, 100);
+      setTimeout(reportHeight, 400);
+    };
+  }
+  setTimeout(reportHeight, 500);
+  setTimeout(reportHeight, 1500);
+});
+</script>
 </head>
 <body>
 
