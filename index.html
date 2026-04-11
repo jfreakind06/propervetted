@@ -7,16 +7,16 @@
 <style>
 /* Wix iframe embed overrides */
 html {
-  overflow: hidden !important;
-  /* No scrollbars on html - Wix page scrolls instead */
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
 }
 body {
   overflow-x: hidden !important;
   overflow-y: visible !important;
   width: 100% !important;
   max-width: 100vw !important;
-  /* Smooth scroll for anchor clicks */
   scroll-behavior: smooth;
+  background: var(--black);
 }
 /* Full width sections - no horizontal overflow */
 .sec-w,.sec-g,.sec-d,.hero,.ticker,.cta-band,.footer,
@@ -25,6 +25,83 @@ body {
   max-width: 100% !important;
   overflow-x: hidden;
 }
+
+/* ════ FLUID TYPE — scales inside Wix iframe ════ */
+.hero-h{font-size:clamp(32px,7vw,82px)!important;letter-spacing:clamp(-1px,-0.02em,-2px)!important}
+.section-h{font-size:clamp(26px,4.5vw,52px)!important}
+.cta-h{font-size:clamp(24px,4vw,48px)!important}
+.about-top-h{font-size:clamp(30px,6vw,72px)!important}
+.svc-name{font-size:clamp(18px,3.5vw,28px)!important}
+.stat-n{font-size:clamp(38px,6vw,64px)!important}
+.pq-text{font-size:clamp(18px,3vw,30px)!important}
+.page-services h1{font-size:clamp(28px,5.5vw,64px)!important}
+.contact-hero-h{font-size:clamp(28px,5vw,56px)!important}
+
+/* ════ MOBILE ≤560px ════ */
+@media(max-width:560px){
+  .topbar{padding:8px 16px}
+  .topbar-left{display:none}
+  .topbar-divider{display:none}
+  .topbar-item span{font-size:11px}
+  .topbar-right{gap:10px}
+  .nav-inner{padding:0 12px;height:62px}
+  .nav-logo img{height:50px}
+  .nav-logo>div span:last-child{display:none}
+  .nav-logo>div span:first-child{font-size:16px}
+  .sec-w,.sec-g,.sec-d{padding:44px 16px!important}
+  .hero-left{padding:44px 16px!important;border-right:none!important}
+  .hero-right{padding:28px 16px!important}
+  .hero-inner{grid-template-columns:1fr!important}
+  .hero-stats{flex-wrap:wrap;gap:16px}
+  .hero-actions{flex-direction:column;align-items:stretch}
+  .svc-row{grid-template-columns:1fr!important}
+  .svc-row .svc-n{display:none}
+  .svc-row>div:last-child{grid-column:auto!important}
+  .stats-grid{grid-template-columns:1fr!important}
+  .stat-cell{padding:28px 20px}
+  .process-grid{grid-template-columns:1fr!important}
+  .proc{border-bottom:2px solid var(--bg)}
+  .cta-band{grid-template-columns:1fr!important;padding:48px 16px!important;gap:20px}
+  .cta-band .btn-white{display:block;text-align:center}
+  .about-top{grid-template-columns:1fr!important;padding:52px 16px!important}
+  .about-top>div:nth-child(2){border-left:none!important;padding-left:0!important;border-top:1px solid rgba(21,103,212,.2);padding-top:28px!important}
+  [data-resp-grid]{grid-template-columns:1fr!important;gap:36px!important}
+  .contact-split{grid-template-columns:1fr!important}
+  .c-left{padding:44px 16px!important}
+  .c-right{padding:40px 16px!important}
+  .photo-strip{grid-template-columns:1fr!important}
+  .photo-block img{height:220px!important}
+  .svc-detail{grid-template-columns:1fr!important}
+  .svc-detail .svc-n{display:none}
+  .svc-detail>div:last-child{grid-column:auto!important}
+  .svc-detail>div:nth-child(2){padding-right:0!important}
+  .footer{padding:44px 16px 24px!important}
+  .footer-grid{grid-template-columns:1fr!important;gap:24px!important}
+  .f-bottom{flex-direction:column;align-items:flex-start;gap:10px}
+  .page-services>div:first-child{padding:52px 16px!important}
+}
+
+/* ════ TABLET ≤768px ════ */
+@media(max-width:768px){
+  .hero-inner{grid-template-columns:1fr!important}
+  .hero-left{border-right:none;border-bottom:1px solid rgba(21,103,212,.2)}
+  .about-top{grid-template-columns:1fr!important}
+  .contact-split{grid-template-columns:1fr!important}
+  .footer-grid{grid-template-columns:1fr 1fr!important}
+  .footer-brand-col{grid-column:1/-1!important}
+  .stats-grid{grid-template-columns:1fr 1fr!important}
+  .process-grid{grid-template-columns:1fr 1fr!important}
+  .svc-detail{grid-template-columns:60px 1fr!important;grid-template-rows:auto auto}
+  .svc-detail>div:last-child{grid-column:2!important}
+  .photo-strip{grid-template-columns:1fr!important}
+  .photo-block img{height:260px}
+  .sec-w,.sec-g,.sec-d{padding:64px 24px!important}
+  .hero-left{padding:56px 24px!important}
+  .hero-right{padding:40px 24px!important}
+  .cta-band{grid-template-columns:1fr!important;gap:24px}
+  .footer{padding:52px 24px 28px!important}
+}
+
 </style>
 <title>Properly Vetted LLC — Business Relationship Security</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800;900&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
@@ -200,7 +277,7 @@ img{display:block;max-width:100%;height:auto}
   text-transform:uppercase;letter-spacing:-1px;line-height:.9;
 }
 .section-h{
-  font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:800;
+  font-family:'Barlow Condensed',sans-serif;font-size:clamp(26px,4.5vw,52px);font-weight:800;
   text-transform:uppercase;letter-spacing:-.5px;line-height:.93;color:var(--ink);
 }
 .section-h-light{color:var(--white)}
@@ -277,9 +354,9 @@ img{display:block;max-width:100%;height:auto}
 }
 .hero-h{
   font-family:'Barlow Condensed',sans-serif;
-  font-size:82px;font-weight:900;
+  font-size:clamp(32px,7vw,82px);font-weight:900;
   line-height:.88;color:var(--white);
-  text-transform:uppercase;letter-spacing:-2px;
+  text-transform:uppercase;letter-spacing:clamp(-1px,-0.15em,-2px);
   margin-bottom:28px;
 }
 .hero-h em{
@@ -333,7 +410,7 @@ img{display:block;max-width:100%;height:auto}
   border-top:1px solid rgba(21,103,212,.18);margin-top:auto;
 }
 .hs-n{
-  font-family:'Barlow Condensed',sans-serif;font-size:34px;
+  font-family:'Barlow Condensed',sans-serif;font-size:clamp(18px,2.1vw,34px);
   font-weight:900;line-height:1;
   background:linear-gradient(180deg,var(--white) 0%,var(--blue-v) 100%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
@@ -387,7 +464,7 @@ img{display:block;max-width:100%;height:auto}
 }
 .svc-row:last-child{border-bottom:1px solid var(--light)}
 .svc-n{
-  font-family:'Barlow Condensed',sans-serif;font-size:56px;
+  font-family:'Barlow Condensed',sans-serif;font-size:clamp(18px,3.5vw,56px);
   font-weight:900;line-height:1;
   background:linear-gradient(135deg,var(--blue-v),rgba(21,103,212,.3));
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
@@ -398,7 +475,7 @@ img{display:block;max-width:100%;height:auto}
   color:var(--blue-v);margin-bottom:6px;
 }
 .svc-name{
-  font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:700;
+  font-family:'Barlow Condensed',sans-serif;font-size:clamp(18px,3.5vw,28px);font-weight:700;
   text-transform:uppercase;color:var(--ink);
   letter-spacing:.2px;padding-right:32px;
 }
@@ -428,7 +505,7 @@ img{display:block;max-width:100%;height:auto}
   background:linear-gradient(180deg,var(--blue-v),transparent);
 }
 .stat-n{
-  font-family:'Barlow Condensed',sans-serif;font-size:64px;
+  font-family:'Barlow Condensed',sans-serif;font-size:clamp(40px,7vw,64px);
   font-weight:900;line-height:1;letter-spacing:-2px;
   background:linear-gradient(135deg,var(--ink) 0%,var(--blue-g) 100%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
@@ -468,7 +545,7 @@ img{display:block;max-width:100%;height:auto}
   color:rgba(21,103,212,.06);pointer-events:none;
 }
 .pq-text{
-  font-family:'Barlow Condensed',sans-serif;font-size:30px;
+  font-family:'Barlow Condensed',sans-serif;font-size:clamp(18px,1.9vw,30px);
   font-weight:700;line-height:1.2;letter-spacing:.1px;
   color:var(--ink);position:relative;z-index:1;
 }
@@ -497,7 +574,7 @@ img{display:block;max-width:100%;height:auto}
 }
 .proc:hover::after{transform:scaleX(1)}
 .proc-n{
-  font-family:'Barlow Condensed',sans-serif;font-size:64px;
+  font-family:'Barlow Condensed',sans-serif;font-size:clamp(21px,4.0vw,64px);
   font-weight:900;line-height:1;margin-bottom:18px;
   background:linear-gradient(135deg,var(--blue-v) 0%,rgba(21,103,212,.25) 100%);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
@@ -525,7 +602,7 @@ img{display:block;max-width:100%;height:auto}
   background:rgba(255,255,255,.04);pointer-events:none;
 }
 .cta-h{
-  font-family:'Barlow Condensed',sans-serif;font-size:48px;font-weight:900;
+  font-family:'Barlow Condensed',sans-serif;font-size:clamp(26px,4vw,48px);font-weight:900;
   text-transform:uppercase;color:var(--white);letter-spacing:-.5px;line-height:.95;
 }
 .cta-sub{
@@ -773,7 +850,7 @@ img{display:block;max-width:100%;height:auto}
   .nav-logo span:last-child{display:none}
   .sec-w,.sec-g,.sec-d{padding:52px 16px}
   .hero-left{padding:52px 16px}
-  .hero-h{font-size:44px;letter-spacing:-1px}
+  .hero-h{font-size:clamp(18px,2.8vw,44px);letter-spacing:-1px}
   .hero-right{padding:36px 16px}
   .hero-stats{flex-wrap:wrap;gap:20px}
   .hero-actions{flex-direction:column;align-items:flex-start;gap:14px}
@@ -817,26 +894,59 @@ img{display:block;max-width:100%;height:auto}
 @keyframes pvFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .nl.active{color:var(--white)!important;opacity:1!important}
 .dl.active{color:var(--blue-v)!important}
+
+/* ── STRONG MOBILE OVERRIDES ── */
+@media(max-width:560px){
+  .hero-h{font-size:clamp(32px,8vw,82px)!important;letter-spacing:-1px!important}
+  .section-h{font-size:clamp(24px,6vw,52px)!important}
+  .about-top-h{font-size:clamp(28px,7vw,72px)!important}
+  .cta-h{font-size:clamp(22px,5.5vw,48px)!important}
+  .hero-inner{grid-template-columns:1fr!important}
+  .hero-right{display:none!important}
+  .svc-detail{grid-template-columns:1fr!important}
+  .svc-detail>div:last-child{grid-column:auto!important}
+  .contact-split{grid-template-columns:1fr!important}
+  .about-top{grid-template-columns:1fr!important;padding:52px 16px!important}
+  .cta-band{grid-template-columns:1fr!important;padding:52px 16px!important;gap:24px!important}
+  .photo-strip{grid-template-columns:1fr!important}
+  .footer-grid{grid-template-columns:1fr 1fr!important;gap:24px!important}
+  .footer-brand-col{grid-column:1/-1!important}
+  .process-grid{grid-template-columns:1fr 1fr!important}
+  .stats-grid{grid-template-columns:1fr!important}
+  .sec-w,.sec-g,.sec-d{padding:44px 16px!important}
+  .topbar{padding:7px 12px!important}
+  .f-bottom{flex-direction:column!important;align-items:flex-start!important}
+  .c-right{padding:40px 16px!important}
+  .c-left{padding:44px 16px!important}
+  .hero-actions{flex-direction:column!important;align-items:flex-start!important}
+  .hero-stats{flex-wrap:wrap!important;gap:16px!important}
+  .svc-row{grid-template-columns:1fr!important;gap:4px!important}
+  .svc-row>div:last-child{grid-column:auto!important}
+  .svc-n{display:none!important}
+  [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important;gap:32px!important}
+}
+@media(max-width:400px){
+  .topbar-item span{display:none!important}
+  .topbar-right{gap:8px!important}
+}
 </style>
 
 <script>
 // ── AUTO HEIGHT + SCROLL FIX FOR WIX EMBED ──
 function reportHeight() {
-  var h = Math.max(
-    document.body.scrollHeight,
-    document.body.offsetHeight,
-    document.documentElement.scrollHeight
-  );
+  // Only measure the active page, not all hidden pages
+  var activePage = document.querySelector('.page.active');
+  var header = document.querySelector('.site-header');
+  var headerH = header ? header.offsetHeight : 0;
+  var pageH = activePage ? activePage.scrollHeight : document.body.scrollHeight;
+  var h = headerH + pageH;
+
   // postMessage to Wix parent
   try { window.parent.postMessage({type:'setHeight', height:h}, '*'); } catch(e){}
   // Wix SDK method
   try { window.Wix && window.Wix.setHeight(h); } catch(e){}
-  // Also try direct iframe resize via parent
-  try {
-    if (window.frameElement) {
-      window.frameElement.style.height = h + 'px';
-    }
-  } catch(e){}
+  // Direct frameElement
+  try { if(window.frameElement){ window.frameElement.style.height = h+'px'; }} catch(e){}
 }
 
 // Patch showPage to report height after every page switch
@@ -1028,7 +1138,7 @@ document.addEventListener('DOMContentLoaded', function() {
           <div class="stat-body">Without proactive pre-engagement screening, most organizations discover supplier fraud only after damage has occurred.</div>
         </div>
         <div class="stat-cell">
-          <div class="stat-n"><em>48</em><span style="font-size:32px">hr</span></div>
+          <div class="stat-n"><em>48</em><span style="font-size:clamp(18px,2.8vw,32px)">hr</span></div>
           <div class="stat-l">Our average report turnaround</div>
           <div class="stat-body">Comprehensive doesn&#8217;t have to mean slow. Most vetting reports delivered within two business days without sacrificing depth.</div>
         </div>
@@ -1112,7 +1222,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div style="position:absolute;top:-150px;right:0;width:600px;height:600px;background:radial-gradient(ellipse,rgba(21,103,212,.15),transparent 65%);pointer-events:none"></div>
     <div class="sec-i-md" style="position:relative;z-index:1">
       <div class="eyebrow eyebrow-light">Our Services</div>
-      <h1 class="section-h section-h-light" style="font-size:64px">Vetting at every<br>layer of your organization.</h1>
+      <h1 class="section-h section-h-light" style="font-size:clamp(26px,5.5vw,64px)">Vetting at every<br>layer of your organization.</h1>
       <p class="body-text" style="color:rgba(190,210,235,.45);max-width:500px;margin-top:18px">Choose one service or build a comprehensive vetting strategy across all four practice areas.</p>
     </div>
   </div>
@@ -1123,7 +1233,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="svc-n">01</div>
         <div style="padding-right:40px">
           <div class="svc-cat">Talent Acquisition</div>
-          <div class="svc-name" style="font-size:32px;margin-bottom:16px">Talent Vetting</div>
+          <div class="svc-name" style="font-size:clamp(22px,4vw,32px);margin-bottom:16px">Talent Vetting</div>
           <p class="svc-body">Comprehensive candidate screening calibrated to role sensitivity. We go beyond basic background checks to give you a full picture of who you&#8217;re hiring before an offer is made. Every report is contextualized to your organization&#8217;s risk tolerance — not a generic pass/fail output.</p>
         </div>
         <div>
@@ -1138,7 +1248,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="svc-n">02</div>
         <div style="padding-right:40px">
           <div class="svc-cat">Supply Chain</div>
-          <div class="svc-name" style="font-size:32px;margin-bottom:16px">Vendor Screening</div>
+          <div class="svc-name" style="font-size:clamp(22px,4vw,32px);margin-bottom:16px">Vendor Screening</div>
           <p class="svc-body">Before a vendor enters your ecosystem, we surface litigation history, financial stability risks, key principal backgrounds, and compliance gaps. Most organizations discover vendor issues only after they&#8217;ve caused damage. We prevent that entirely.</p>
         </div>
         <div>
@@ -1153,7 +1263,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="svc-n">03</div>
         <div style="padding-right:40px">
           <div class="svc-cat">Leadership</div>
-          <div class="svc-name" style="font-size:32px;margin-bottom:16px">Executive Screening</div>
+          <div class="svc-name" style="font-size:clamp(22px,4vw,32px);margin-bottom:16px">Executive Screening</div>
           <p class="svc-body">Elevated vetting for board members, C-suite executives, and investment partners. When one wrong decision can cost millions, surface-level screening is not enough. We conduct expanded background checks, regulatory history reviews, executive reference calls, and full media audits.</p>
         </div>
         <div>
@@ -1168,7 +1278,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="svc-n">04</div>
         <div style="padding-right:40px">
           <div class="svc-cat">Advisory</div>
-          <div class="svc-name" style="font-size:32px;margin-bottom:16px">HC Strategy</div>
+          <div class="svc-name" style="font-size:clamp(22px,4vw,32px);margin-bottom:16px">HC Strategy</div>
           <p class="svc-body">Long-term advisory to embed vetting into your organization&#8217;s DNA. From hiring policy development to onboarding frameworks and workforce risk scoring — we become an extension of your team. Trust becomes structural, not assumed.</p>
         </div>
         <div>
@@ -1236,7 +1346,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div id="pv-page-about"    class="page"><div class="about-top">
     <div>
       <div class="eyebrow eyebrow-light">Our Story</div>
-      <h1 class="about-top-h">Built on<br>the belief<br>that trust<br>is <em>earned.</em></h1>
+      <h1 class="about-top-h" style="font-size:clamp(32px,6vw,72px)">Built on<br>the belief<br>that trust<br>is <em>earned.</em></h1>
     </div>
     <div style="border-left:1px solid rgba(21,103,212,.2);padding-left:48px;position:relative;z-index:1">
       <p class="body-text" style="color:rgba(190,210,235,.5);margin-bottom:28px">Properly Vetted LLC was founded with a singular mission: give organizations the assurance that every business relationship — from frontline employees to C-suite executives — is genuinely invested in their success.</p>
@@ -1254,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <div data-resp-grid style="display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:start">
         <div>
           <div class="eyebrow">Our Values</div>
-          <h2 class="section-h" style="font-size:42px;margin-bottom:32px">What drives<br>every engagement.</h2>
+          <h2 class="section-h" style="font-size:clamp(18px,2.6vw,42px);margin-bottom:32px">What drives<br>every engagement.</h2>
           <div>
             <div class="val-item"><div class="val-name">Integrity</div><div class="val-body">We never cut corners on a report, regardless of timeline pressure. The truth is the truth.</div></div>
             <div class="val-item"><div class="val-name">Thoroughness</div><div class="val-body">Surface-level screening is worse than no screening at all. We go deep, every time.</div></div>
@@ -1264,7 +1374,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         <div>
           <div class="eyebrow">Our Approach</div>
-          <h2 class="section-h" style="font-size:42px;margin-bottom:28px">Why clients<br>stay with us.</h2>
+          <h2 class="section-h" style="font-size:clamp(18px,2.6vw,42px);margin-bottom:28px">Why clients<br>stay with us.</h2>
           <p class="body-text" style="margin-bottom:20px">Most background check providers are transactional. You submit a name, you get a PDF. There&#8217;s no context, no interpretation, no accountability.</p>
           <p class="body-text" style="margin-bottom:28px">Properly Vetted operates differently. We become an extension of your team — understanding your culture, your risk appetite, and your business goals — so that every vetting engagement is calibrated to what actually matters for <em>your</em> organization.</p>
           <div class="pullquote">
@@ -1345,7 +1455,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(21,103,212,.15),transparent 65%);pointer-events:none"></div>
     <div style="position:relative;z-index:1">
       <div class="eyebrow eyebrow-light" style="justify-content:center">Get in Touch</div>
-      <h1 class="contact-hero-h" style="font-family:'Barlow Condensed',sans-serif;font-size:56px;font-weight:900;text-transform:uppercase;color:var(--white);letter-spacing:-.5px;line-height:.92;margin-bottom:18px">Let&#8217;s talk about<br>your vetting needs.</h1>
+      <h1 class="contact-hero-h" style="font-family:'Barlow Condensed',sans-serif;font-size:clamp(18px,3.5vw,56px);font-weight:900;text-transform:uppercase;color:var(--white);letter-spacing:-.5px;line-height:.92;margin-bottom:18px">Let&#8217;s talk about<br>your vetting needs.</h1>
       <p class="body-text" style="color:rgba(190,210,235,.45);max-width:420px;margin:0 auto">All inquiries are handled with complete discretion. We respond within one business day.</p>
     </div>
   </div>
