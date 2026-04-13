@@ -741,6 +741,9 @@ img{display:block;max-width:100%;height:auto}
   transition:border-color .2s;
 }
 .c-field:focus{border-bottom-color:var(--blue-v)}
+.c-field.pv-invalid{border-bottom-color:#e74c3c}
+.pv-field-err{font-family:'Lato',sans-serif;font-size:11px;color:#e74c3c;margin-top:4px;min-height:0;display:none}
+.pv-field-err.visible{display:block}
 .c-info-lbl{
   font-family:'Lato',sans-serif;font-size:9px;font-weight:700;
   letter-spacing:2px;text-transform:uppercase;color:var(--steel);margin-bottom:5px;
@@ -1034,17 +1037,43 @@ img{display:block;max-width:100%;height:auto}
 
     <div class="c-right">
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;text-transform:uppercase;color:var(--ink);letter-spacing:.3px;margin-bottom:36px">Send a message</div>
-      <form action="mailto:eddiejones@propervetted.com" method="post" enctype="text/plain">
+      <form id="pv-contact-form" novalidate>
+        <input type="hidden" name="access_key" value="e727f204-2fd0-4752-8299-5a5a867e7c2d">
+        <input type="hidden" name="subject" value="New Inquiry — ProperVetted Contact Form">
+        <input type="hidden" name="from_name" value="ProperVetted Website">
+        <input type="hidden" name="replyto" id="pv-replyto">
+        <!-- honeypot anti-spam field — hidden from real users -->
+        <input type="text" name="botcheck" style="display:none!important" tabindex="-1" autocomplete="off">
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
-          <div><div class="c-field-lbl">First Name</div><input class="c-field" type="text" placeholder="First name"></div>
-          <div><div class="c-field-lbl">Last Name</div><input class="c-field" type="text" placeholder="Last name"></div>
+          <div>
+            <div class="c-field-lbl">First Name <span style="color:#e74c3c">*</span></div>
+            <input class="c-field" type="text" name="first_name" id="pv-fname" placeholder="First name" required minlength="2" maxlength="50">
+            <div class="pv-field-err" id="err-fname"></div>
+          </div>
+          <div>
+            <div class="c-field-lbl">Last Name <span style="color:#e74c3c">*</span></div>
+            <input class="c-field" type="text" name="last_name" id="pv-lname" placeholder="Last name" required minlength="2" maxlength="50">
+            <div class="pv-field-err" id="err-lname"></div>
+          </div>
         </div>
-        <div style="margin-bottom:16px"><div class="c-field-lbl">Company</div><input class="c-field" type="text" placeholder="Company name"></div>
-        <div style="margin-bottom:16px"><div class="c-field-lbl">Email</div><input class="c-field" type="email" placeholder="you@company.com"></div>
-        <div style="margin-bottom:16px"><div class="c-field-lbl">Phone</div><input class="c-field" type="tel" placeholder="(000) 000-0000"></div>
         <div style="margin-bottom:16px">
-          <div class="c-field-lbl">Service Interest</div>
-          <select class="c-field" style="appearance:none;-webkit-appearance:none;cursor:pointer;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22%3E%3Cpath d=%22M1 1l5 5 5-5%22 stroke=%221567d4%22 stroke-width=%221.5%22 fill=%22none%22 stroke-linecap=%22round%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 14px center;padding-right:36px">
+          <div class="c-field-lbl">Company</div>
+          <input class="c-field" type="text" name="company" id="pv-company" placeholder="Company name" maxlength="100">
+        </div>
+        <div style="margin-bottom:16px">
+          <div class="c-field-lbl">Email <span style="color:#e74c3c">*</span></div>
+          <input class="c-field" type="email" name="email" id="pv-email" placeholder="you@company.com" required maxlength="100">
+          <div class="pv-field-err" id="err-email"></div>
+        </div>
+        <div style="margin-bottom:16px">
+          <div class="c-field-lbl">Phone</div>
+          <input class="c-field" type="tel" name="phone" id="pv-phone" placeholder="(000) 000-0000" maxlength="20">
+          <div class="pv-field-err" id="err-phone"></div>
+        </div>
+        <div style="margin-bottom:16px">
+          <div class="c-field-lbl">Service Interest <span style="color:#e74c3c">*</span></div>
+          <select class="c-field" name="service_interest" id="pv-service" required style="appearance:none;-webkit-appearance:none;cursor:pointer;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%228%22 viewBox=%220 0 12 8%22%3E%3Cpath d=%22M1 1l5 5 5-5%22 stroke=%221567d4%22 stroke-width=%221.5%22 fill=%22none%22 stroke-linecap=%22round%22/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 14px center;padding-right:36px">
             <option value="">Select a service</option>
             <option>Talent Vetting</option>
             <option>Vendor Screening</option>
@@ -1052,9 +1081,15 @@ img{display:block;max-width:100%;height:auto}
             <option>Human Capital Strategy</option>
             <option>Not sure &mdash; need guidance</option>
           </select>
+          <div class="pv-field-err" id="err-service"></div>
         </div>
-        <div style="margin-bottom:28px"><div class="c-field-lbl">Message</div><textarea class="c-field" rows="4" placeholder="Tell us about your vetting needs..." style="resize:vertical;height:100px"></textarea></div>
-        <button type="submit" class="btn btn-blue" style="width:100%;text-align:center;display:block;font-size:11px;border:none;cursor:pointer;padding:16px">Send Message &rarr;</button>
+        <div style="margin-bottom:28px">
+          <div class="c-field-lbl">Message <span style="color:#e74c3c">*</span></div>
+          <textarea class="c-field" rows="4" name="message" id="pv-message" placeholder="Tell us about your vetting needs..." required minlength="10" maxlength="2000" style="resize:vertical;height:100px"></textarea>
+          <div class="pv-field-err" id="err-message"></div>
+        </div>
+        <div id="pv-form-status" style="display:none;padding:14px 18px;border-radius:8px;margin-bottom:16px;font-family:'Lato',sans-serif;font-size:13px;font-weight:500;text-align:center"></div>
+        <button type="submit" id="pv-submit-btn" class="btn btn-blue" style="width:100%;text-align:center;display:block;font-size:11px;border:none;cursor:pointer;padding:16px">Send Message &rarr;</button>
         <p style="font-family:'Lato',sans-serif;font-size:11px;color:#9ab0c0;text-align:center;margin-top:14px;font-weight:300">We respond within 1 business day. All information strictly confidential.</p>
       </form>
     </div>
@@ -1163,6 +1198,143 @@ function fixGrids() {
 }
 window.addEventListener('resize', fixGrids);
 window.addEventListener('load', fixGrids);
+
+// ── CONTACT FORM VALIDATION & SUBMISSION ────────────────────
+(function() {
+  var form      = document.getElementById('pv-contact-form');
+  var submitBtn = document.getElementById('pv-submit-btn');
+  var statusDiv = document.getElementById('pv-form-status');
+  var lastSubmit = 0;
+
+  // helpers
+  function showErr(id, msg) {
+    var el = document.getElementById(id);
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+  function clearErr(id) {
+    var el = document.getElementById(id);
+    el.textContent = '';
+    el.classList.remove('visible');
+  }
+  function clearAllErrs() {
+    var errs = form.querySelectorAll('.pv-field-err');
+    for (var i = 0; i < errs.length; i++) {
+      errs[i].textContent = '';
+      errs[i].classList.remove('visible');
+    }
+    var fields = form.querySelectorAll('.pv-invalid');
+    for (var j = 0; j < fields.length; j++) {
+      fields[j].classList.remove('pv-invalid');
+    }
+  }
+  function setStatus(msg, type) {
+    statusDiv.style.display = 'block';
+    statusDiv.textContent = msg;
+    if (type === 'success') {
+      statusDiv.style.background = '#eafaf1';
+      statusDiv.style.color = '#27ae60';
+      statusDiv.style.border = '1px solid #27ae60';
+    } else {
+      statusDiv.style.background = '#fdf0ef';
+      statusDiv.style.color = '#e74c3c';
+      statusDiv.style.border = '1px solid #e74c3c';
+    }
+  }
+
+  // validation patterns
+  var emailRe = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+  var phoneRe = /^[\d\s()+\-\.]{7,20}$/;
+  var nameRe  = /^[A-Za-z\s'\-\.]{2,50}$/;
+
+  function validate() {
+    var ok = true;
+    clearAllErrs();
+
+    var fname = form.querySelector('#pv-fname').value.trim();
+    if (!fname) { showErr('err-fname', 'First name is required'); form.querySelector('#pv-fname').classList.add('pv-invalid'); ok = false; }
+    else if (!nameRe.test(fname)) { showErr('err-fname', 'Enter a valid first name (letters only)'); form.querySelector('#pv-fname').classList.add('pv-invalid'); ok = false; }
+
+    var lname = form.querySelector('#pv-lname').value.trim();
+    if (!lname) { showErr('err-lname', 'Last name is required'); form.querySelector('#pv-lname').classList.add('pv-invalid'); ok = false; }
+    else if (!nameRe.test(lname)) { showErr('err-lname', 'Enter a valid last name (letters only)'); form.querySelector('#pv-lname').classList.add('pv-invalid'); ok = false; }
+
+    var email = form.querySelector('#pv-email').value.trim();
+    if (!email) { showErr('err-email', 'Email is required'); form.querySelector('#pv-email').classList.add('pv-invalid'); ok = false; }
+    else if (!emailRe.test(email)) { showErr('err-email', 'Enter a valid email address'); form.querySelector('#pv-email').classList.add('pv-invalid'); ok = false; }
+
+    var phone = form.querySelector('#pv-phone').value.trim();
+    if (phone && !phoneRe.test(phone)) { showErr('err-phone', 'Enter a valid phone number'); form.querySelector('#pv-phone').classList.add('pv-invalid'); ok = false; }
+
+    var service = form.querySelector('#pv-service').value;
+    if (!service) { showErr('err-service', 'Please select a service'); form.querySelector('#pv-service').classList.add('pv-invalid'); ok = false; }
+
+    var message = form.querySelector('#pv-message').value.trim();
+    if (!message) { showErr('err-message', 'Message is required'); form.querySelector('#pv-message').classList.add('pv-invalid'); ok = false; }
+    else if (message.length < 10) { showErr('err-message', 'Message must be at least 10 characters'); form.querySelector('#pv-message').classList.add('pv-invalid'); ok = false; }
+
+    return ok;
+  }
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    statusDiv.style.display = 'none';
+
+    if (!validate()) return;
+
+    // rate limit — 30 seconds between submissions
+    var now = Date.now();
+    if (now - lastSubmit < 30000) {
+      setStatus('Please wait before submitting again.', 'error');
+      return;
+    }
+
+    // set reply-to so recipient can reply directly to the sender
+    document.getElementById('pv-replyto').value = form.querySelector('#pv-email').value.trim();
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending...';
+
+    var formData = new FormData(form);
+
+    fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      body: formData
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data.success) {
+        lastSubmit = Date.now();
+        setStatus('Message sent successfully! We will be in touch within 1 business day.', 'success');
+        form.reset();
+        clearAllErrs();
+      } else {
+        setStatus('Something went wrong. Please email us directly at eddiejones@propervetted.com', 'error');
+      }
+    })
+    .catch(function() {
+      setStatus('Network error. Please check your connection or email us at eddiejones@propervetted.com', 'error');
+    })
+    .finally(function() {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send Message \u2192';
+    });
+  });
+
+  // clear individual field errors on input
+  var fieldMap = [
+    ['pv-fname','err-fname'], ['pv-lname','err-lname'],
+    ['pv-email','err-email'], ['pv-phone','err-phone'],
+    ['pv-service','err-service'], ['pv-message','err-message']
+  ];
+  fieldMap.forEach(function(pair) {
+    var field = document.getElementById(pair[0]);
+    field.addEventListener('input', function() {
+      field.classList.remove('pv-invalid');
+      clearErr(pair[1]);
+    });
+  });
+})();
 </script>
 </body>
 </html>
